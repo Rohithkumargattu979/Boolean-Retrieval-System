@@ -19,7 +19,7 @@ stop_words = ['is', 'a', 'for', 'the', 'of','this','was','it','that','.',',',';'
 
 
 documentID = 0
-path = r"C:\Users\Rohan\OneDrive\Desktop\ir\Wildcard-Query-Search-Engine\proj\dataset"
+path = r"C:\Users\Rohan\OneDrive\Desktop\ir\Wildcard-Query-Search-Engine\proj\data1"
 
 ps = PorterStemmer()
 tokens={}
@@ -47,19 +47,12 @@ for root, dirs, files in os.walk(path):
                                 tokens[curr_word] = [documentID]
                             else:
                                 tokens[curr_word].append(documentID)
-def rotate(str, n):
-    return str[n:] + str[:n]
 
-keys = tokens.keys()
-for key in sorted(keys):
-    dkey = key + "$"
-    for i in range(len(dkey),0,-1):
-        out = rotate(dkey,i)
 
 class TrieNode:
      
     # Trie node class
-    def __init__(self):
+    def _init_(self):
         self.children = [None]*26
  
         # isEndOfWord is True if node represent the end of the word
@@ -68,7 +61,7 @@ class TrieNode:
 class Trie:
      
     # Trie data structure class
-    def __init__(self):
+    def _init_(self):
         self.root = self.getNode()
  
     def getNode(self):
@@ -132,7 +125,146 @@ def preprocessHash():
             hm[hashFunc(x)]=[x]
         else:
             hm[hashFunc(x)].append(x)
-        
+
+#for wildcard query from here
+def rotate(str, n):
+    return str[n:] + str[:n]
+
+#generate permuterm index
+keys = tokens.keys()
+list_permTokens=[]
+for key in sorted(keys):
+    dkey = key + "$"
+    for i in range(len(dkey),0,-1):
+        out = rotate(dkey,i)
+        list_permTokens.append(out)
+inverted = {}
+for i in tokens.keys():
+    inverted[i]=tokens.get(i)[0]
+permuterm = {}
+for i in range(0,len(list_permTokens)-1):
+    permuterm[list_permTokens[i]]=list_permTokens[i+1]
+
+
+
+def bitwise_and(A,B):
+    return set(A).intersection(B)
+def process_query(query):    
+    term_list = prefix_match(permuterm,query)
+    #print(term_list)
+    
+    docID = []
+    for term in term_list:
+        docID.append(inverted[term])
+    #print(docID)
+
+    temp = []
+    for x in docID:
+        for y in x:
+            temp.append(y)
+    #print(temp)        
+
+    temp = [int(x) for x in temp]
+    documentID = 0
+    outputfile = open("RetrievedDocuments.txt","w")
+    path = r"C:\Users\Rohan\OneDrive\Desktop\ir\Wildcard-Query-Search-Engine\proj\data1"
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            documentID = documentID + 1
+            with open(os.path.join(path, file)) as f:
+                for text in f:
+                    if documentID in temp:
+                        outputfile.write(file + "\n" + text + "\n")
+            f.close()
+    outputfile.close()
+    return
+
+def fun1(query):
+    
+    parts = query.split("*")
+    if len(parts) == 3:
+        case = 4
+    elif parts[1] == '':
+        case = 1
+    elif parts[0] == '':
+        case = 2
+    elif parts[0] != '' and parts[1] != '':
+        case = 3
+    
+    if case == 4:
+        if parts[0] == '':
+            case = 1
+    print("case = ", case)
+
+    if case == 1:
+        query = parts[0]
+    elif case == 2:
+        query = parts[1] + "$"
+    elif case == 3:
+        query = parts[1] + "$" + parts[0]
+    elif case == 4:
+        queryA = parts[2] + "$" + parts[0]
+        queryB = parts[1]
+    if case != 4:
+        process_query(query)
+    elif case == 4:
+        # queryA Z$X
+        term_list = prefix_match(permuterm,queryA)
+        #print(term_list)
+    
+    docID = []
+    for term in term_list:
+        docID.append(inverted[term])
+    #print(docID)
+
+    temp1 = []
+    for x in docID:
+        for y in x:
+            temp1.append(y)
+    #print(temp)        
+
+    temp1 = [int(x) for x in temp1]
+# queryB Y
+    term_list = prefix_match(permuterm,queryB)
+    #print(term_list)
+    
+    docID = []
+    for term2 in term_list:
+        docID.append(inverted[term2])
+    #print(docID)
+
+    temp2 = []
+    for x in docID:
+        for y in x:
+            temp2.append(y)
+    #print(temp)        
+
+    temp2 = [int(x) for x in temp2]
+
+    temp = bitwise_and(temp1,temp2)
+
+  #  print(temp1,temp2,temp)    
+    documentID = 0
+    outputfile = open("RetrievedDocuments.txt","w")
+    path = r"C:\Users\Rohan\OneDrive\Desktop\ir\Wildcard-Query-Search-Engine\proj\data1"
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            documentID = documentID + 1
+            with open(os.path.join(path, file)) as f:
+                for text in f:
+                    if documentID in temp:
+                        outputfile.write(file + "\n" + text + "\n")
+            f.close()
+    outputfile.close()
+
+
+def prefix_match(term, prefix):
+    term_list = []
+    for tk in term.keys():
+        if tk.startswith(prefix):
+            term_list.append(term[tk])
+    return term_list
+
 def main():
     args = parse_args()
     ir = IRSystem(docs, stop_words=stop_words)
@@ -141,7 +273,8 @@ def main():
         query = input('Enter boolean query: ')
         for x in query:
             if(x=='*'):
-                wildcard(query)
+                fun1(query)
+                continue
         start = timeit.default_timer()
         nquery=editDistQuery(query)
         print(query)
@@ -227,10 +360,8 @@ def editDistDP(str1, str2, m, n):
     return dp[m][n]
  
  
-if __name__ == '__main__':
+if _name_ == '_main_':
     try:
         main()
     except KeyboardInterrupt as e:
         print('EXIT')
-
-
